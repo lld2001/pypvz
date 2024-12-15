@@ -1,0 +1,937 @@
+* PythonPlantsVsZombies
+https://www.cnblogs.com/Qqun821460695/p/12001851.html
+
+前言
+
+本文的文字及图片来源于网络,仅供学习、交流使用,不具有任何商业用途,版权归原作者所有,如有问题请及时联系我们以作处
+理。
+
+作者： marble_xu
+
+GitHub地址：https://github.com/marblexu/PythonPlantsVsZombies
+
+功能介绍
+
+最近一直在给这个植物大战僵尸游戏添加新的植物和僵尸, 因为网上的图片资源有限，能加的植物和僵尸比较少， 目前进展如
+下。
+
+功能实现如下：
+
+** 支持的植物类型：太阳花，豌豆射手，寒冰射手，坚果，樱桃炸弹。新增加植物：双重豌豆射手，三重豌豆射手，食人花
+ ，小喷菇，土豆地雷，倭瓜。
+
+** 支持的僵尸类型：普通僵尸，棋子僵尸，路障僵尸，铁桶僵尸。新增加读报僵尸。
+
+** 使用json文件保存关卡信息，设置僵尸出现的时间和位置。
+
+** 增加每关开始时选择上场植物。
+
+** 增加除草机。
+
+下面是游戏的截图：
+
+在这里插入图片描述 
+在这里插入图片描述 
+在这里插入图片描述 
+
+植物卡片选择和种植
+
+如图所示，游戏中可以种植物的方格一共有45个（有5行，每行9列）。
+
+这篇文章要介绍的是：
+
+** 上方植物卡片栏的实现。
+
+** 点击植物卡片，鼠标切换为植物图片。
+
+** 鼠标移动时，判断当前在哪个方格中，并显示半透明的植物作为提示。
+
+代码实现
+
+所有的植物卡片的名称和属性都保存在单独的list中，每个list index都对应一种植物。
+
+比如list index 0 就是太阳花：
+
+** card_name_list[0] 是太阳花卡片的名字，用来获取太阳花卡片的图片。
+
+** plant_name_list[0] 是太阳花的名字，用来获取太阳花卡片的图片。
+
+** plant_sun_list[0] 是种植太阳花需要花费的太阳点数。
+
+** plant_frozen_time_list[0] 是太阳花的冷却时间。
+
+植物卡片类
+
+每个植物卡片是一个单独的Card类，用来显示这个植物。
+
+** checkMouseClick函数：判断鼠标是否点击到这个卡片；
+
+** canClick：判断这个卡片是否能种植（有没有足够的点数，是否还在冷却时间内）；
+
+** update 函数：通过设置图片的透明度来表示这个卡片是否能选择。
+
+卡片栏类
+
+MenuBar类显示图3中的植物卡片栏：
+
+** self.sun_value：当前采集的太阳点数；
+
+** self.card_list: 植物卡片的list；
+
+** setupCards函数：遍历初始化init函数中传入这个关卡选好的植物卡片list，依次创建Card类，设置每个卡片的显示位置；
+ 
+
+** checkCardClick函数：检查鼠标是否点击了卡片栏上的某个植物卡片，如果选择了一个可种植的卡片，返回结果。
+
+代码：
+
+  1 import pygame as pg
+  2 from .. import tool
+  3 from .. import constants as c
+  4 ​
+  5 PANEL_Y_START = 87
+  6 PANEL_X_START = 22
+  7 PANEL_Y_INTERNAL = 74
+  8 PANEL_X_INTERNAL = 53
+  9 CARD_LIST_NUM = 8
+ 10 ​
+ 11 card_name_list = [c.CARD_SUNFLOWER, c.CARD_PEASHOOTER, c.CARD_SNOWPEASHOOTER, c.CARD_WALLNUT,
+ 12                   c.CARD_CHERRYBOMB, c.CARD_THREEPEASHOOTER, c.CARD_REPEATERPEA, c.CARD_CHOMPER,
+ 13                   c.CARD_PUFFSHROOM, c.CARD_POTATOMINE, c.CARD_SQUASH, c.CARD_SPIKEWEED,
+ 14                   c.CARD_JALAPENO, c.CARD_SCAREDYSHROOM, c.CARD_SUNSHROOM, c.CARD_ICESHROOM]
+ 15 plant_name_list = [c.SUNFLOWER, c.PEASHOOTER, c.SNOWPEASHOOTER, c.WALLNUT,
+ 16                    c.CHERRYBOMB, c.THREEPEASHOOTER, c.REPEATERPEA, c.CHOMPER,
+ 17                    c.PUFFSHROOM, c.POTATOMINE, c.SQUASH, c.SPIKEWEED,
+ 18                    c.JALAPENO, c.SCAREDYSHROOM, c.SUNSHROOM, c.ICESHROOM]
+ 19 plant_sun_list = [50, 100, 175, 50, 150, 325, 200, 150, 0, 25, 50, 100, 125, 25, 25, 75]
+ 20 plant_frozen_time_list = [7500, 7500, 7500, 30000, 50000, 7500, 7500, 7500, 7500, 30000,
+ 21                           30000, 7500, 50000, 7500, 7500, 50000]
+ 22 all_card_list = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+ 23 ​
+ 24 def getSunValueImage(sun_value):
+ 25     font = pg.font.SysFont(None, 22)
+ 26     width = 32
+ 27     msg_image = font.render(str(sun_value), True, c.NAVYBLUE, c.LIGHTYELLOW)
+ 28     msg_rect = msg_image.get_rect()
+ 29     msg_w = msg_rect.width
+ 30 ​
+ 31     image = pg.Surface([width, 17])
+ 32     x = width - msg_w
+ 33 ​
+ 34     image.fill(c.LIGHTYELLOW)
+ 35     image.blit(msg_image, (x, 0), (0, 0, msg_rect.w, msg_rect.h))
+ 36     image.set_colorkey(c.BLACK)
+ 37     return image
+ 38 ​
+ 39 class Card():
+ 40     def __init__(self, x, y, name_index, scale=0.78):
+ 41         self.loadFrame(card_name_list[name_index], scale)
+ 42         self.rect = self.orig_image.get_rect()
+ 43         self.rect.x = x
+ 44         self.rect.y = y
+ 45         
+ 46         self.name_index = name_index
+ 47         self.sun_cost = plant_sun_list[name_index]
+ 48         self.frozen_time = plant_frozen_time_list[name_index]
+ 49         self.frozen_timer = -self.frozen_time
+ 50         self.refresh_timer = 0
+ 51         self.select = True
+ 52 ​
+ 53     def loadFrame(self, name, scale):
+ 54         frame = tool.GFX[name]
+ 55         rect = frame.get_rect()
+ 56         width, height = rect.w, rect.h
+ 57 ​
+ 58         self.orig_image = tool.get_image(frame, 0, 0, width, height, c.BLACK, scale)
+ 59         self.image = self.orig_image
+ 60 ​
+ 61     def checkMouseClick(self, mouse_pos):
+ 62         x, y = mouse_pos
+ 63         if(x >= self.rect.x and x <= self.rect.right and
+ 64            y >= self.rect.y and y <= self.rect.bottom):
+ 65             return True
+ 66         return False
+ 67 ​
+ 68     def canClick(self, sun_value, current_time):
+ 69         if self.sun_cost <= sun_value and (current_time - self.frozen_timer) > self.frozen_time:
+ 70             return True
+ 71         return False
+ 72 ​
+ 73     def canSelect(self):
+ 74         return self.select
+ 75 ​
+ 76     def setSelect(self, can_select):
+ 77         self.select = can_select
+ 78         if can_select:
+ 79             self.image.set_alpha(255)
+ 80         else:
+ 81             self.image.set_alpha(128)
+ 82 ​
+ 83     def setFrozenTime(self, current_time):
+ 84         self.frozen_timer = current_time
+ 85 ​
+ 86     def createShowImage(self, sun_value, current_time):
+ 87         '''create a card image to show cool down status
+ 88            or disable status when have not enough sun value'''
+ 89         time = current_time - self.frozen_timer
+ 90         if time < self.frozen_time: #cool down status
+ 91             image = pg.Surface([self.rect.w, self.rect.h])
+ 92             frozen_image = self.orig_image.copy()
+ 93             frozen_image.set_alpha(128)
+ 94             frozen_height = (self.frozen_time - time)/self.frozen_time * self.rect.h
+ 95             
+ 96             image.blit(frozen_image, (0,0), (0, 0, self.rect.w, frozen_height))
+ 97             image.blit(self.orig_image, (0,frozen_height),
+ 98                        (0, frozen_height, self.rect.w, self.rect.h - frozen_height))
+ 99         elif self.sun_cost > sun_value: #disable status
+100             image = self.orig_image.copy()
+101             image.set_alpha(192)
+102         else:
+103             image = self.orig_image
+104         return image
+105 ​
+106     def update(self, sun_value, current_time):
+107         if (current_time - self.refresh_timer) >= 250:
+108             self.image = self.createShowImage(sun_value, current_time)
+109             self.refresh_timer = current_time
+110 ​
+111     def draw(self, surface):
+112         surface.blit(self.image, self.rect)
+113 ​
+114 class MenuBar():
+115     def __init__(self, card_list, sun_value):
+116         self.loadFrame(c.MENUBAR_BACKGROUND)
+117         self.rect = self.image.get_rect()
+118         self.rect.x = 10
+119         self.rect.y = 0
+120         
+121         self.sun_value = sun_value
+122         self.card_offset_x = 32
+123         self.setupCards(card_list)
+124 ​
+125     def loadFrame(self, name):
+126         frame = tool.GFX[name]
+127         rect = frame.get_rect()
+128         frame_rect = (rect.x, rect.y, rect.w, rect.h)
+129 ​
+130         self.image = tool.get_image(tool.GFX[name], *frame_rect, c.WHITE, 1)
+131 ​
+132     def update(self, current_time):
+133         self.current_time = current_time
+134         for card in self.card_list:
+135             card.update(self.sun_value, self.current_time)
+136 ​
+137     def createImage(self, x, y, num):
+138         if num == 1:
+139             return
+140         img = self.image
+141         rect = self.image.get_rect()
+142         width = rect.w
+143         height = rect.h
+144         self.image = pg.Surface((width * num, height)).convert()
+145         self.rect = self.image.get_rect()
+146         self.rect.x = x
+147         self.rect.y = y
+148         for i in range(num):
+149             x = i * width
+150             self.image.blit(img, (x,0))
+151         self.image.set_colorkey(c.BLACK)
+152     
+153     def setupCards(self, card_list):
+154         self.card_list = []
+155         x = self.card_offset_x
+156         y = 8
+157         for index in card_list:
+158             x += 55
+159             self.card_list.append(Card(x, y, index))
+160 ​
+161     def checkCardClick(self, mouse_pos):
+162         result = None
+163         for card in self.card_list:
+164             if card.checkMouseClick(mouse_pos):
+165                 if card.canClick(self.sun_value, self.current_time):
+166                     result = (plant_name_list[card.name_index], card.sun_cost)
+167                 break
+168         return result
+169     
+170     def checkMenuBarClick(self, mouse_pos):
+171         x, y = mouse_pos
+172         if(x >= self.rect.x and x <= self.rect.right and
+173            y >= self.rect.y and y <= self.rect.bottom):
+174             return True
+175         return False
+176 ​
+177     def decreaseSunValue(self, value):
+178         self.sun_value -= value
+179 ​
+180     def increaseSunValue(self, value):
+181         self.sun_value += value
+182 ​
+183     def setCardFrozenTime(self, plant_name):
+184         for card in self.card_list:
+185             if plant_name_list[card.name_index] == plant_name:
+186                 card.setFrozenTime(self.current_time)
+187                 break
+188 ​
+189     def drawSunValue(self):
+190         self.value_image = getSunValueImage(self.sun_value)
+191         self.value_rect = self.value_image.get_rect()
+192         self.value_rect.x = 21
+193         self.value_rect.y = self.rect.bottom - 21
+194         
+195         self.image.blit(self.value_image, self.value_rect)
+196 ​
+197     def draw(self, surface):
+198         self.drawSunValue()
+199         surface.blit(self.image, self.rect)
+200         for card in self.card_list:
+201             card.draw(surface)
+202 ​
+203 class Panel():
+204     def __init__(self, card_list, sun_value):
+205         self.loadImages(sun_value)
+206         self.selected_cards = []
+207         self.selected_num = 0
+208         self.setupCards(card_list)
+209 ​
+210     def loadFrame(self, name):
+211         frame = tool.GFX[name]
+212         rect = frame.get_rect()
+213         frame_rect = (rect.x, rect.y, rect.w, rect.h)
+214 ​
+215         return tool.get_image(tool.GFX[name], *frame_rect, c.WHITE, 1)
+216 ​
+217     def loadImages(self, sun_value):
+218         self.menu_image = self.loadFrame(c.MENUBAR_BACKGROUND)
+219         self.menu_rect = self.menu_image.get_rect()
+220         self.menu_rect.x = 0
+221         self.menu_rect.y = 0
+222 ​
+223         self.panel_image = self.loadFrame(c.PANEL_BACKGROUND)
+224         self.panel_rect = self.panel_image.get_rect()
+225         self.panel_rect.x = 0
+226         self.panel_rect.y = PANEL_Y_START
+227 ​
+228         
+229         self.value_image = getSunValueImage(sun_value)
+230         self.value_rect = self.value_image.get_rect()
+231         self.value_rect.x = 21
+232         self.value_rect.y = self.menu_rect.bottom - 21
+233 ​
+234         self.button_image =  self.loadFrame(c.START_BUTTON)
+235         self.button_rect = self.button_image.get_rect()
+236         self.button_rect.x = 155
+237         self.button_rect.y = 547
+238 ​
+239     def setupCards(self, card_list):
+240         self.card_list = []
+241         x = PANEL_X_START - PANEL_X_INTERNAL
+242         y = PANEL_Y_START + 43 - PANEL_Y_INTERNAL
+243         for i, index in enumerate(card_list):
+244             if i % 8 == 0:
+245                 x = PANEL_X_START - PANEL_X_INTERNAL
+246                 y += PANEL_Y_INTERNAL
+247             x += PANEL_X_INTERNAL
+248             self.card_list.append(Card(x, y, index, 0.75))
+249 ​
+250     def checkCardClick(self, mouse_pos):
+251         delete_card = None
+252         for card in self.selected_cards:
+253             if delete_card: # when delete a card, move right cards to left
+254                 card.rect.x -= 55
+255             elif card.checkMouseClick(mouse_pos):
+256                 self.deleteCard(card.name_index)
+257                 delete_card = card
+258 ​
+259         if delete_card:
+260             self.selected_cards.remove(delete_card)
+261             self.selected_num -= 1
+262 ​
+263         if self.selected_num == CARD_LIST_NUM:
+264             return
+265 ​
+266         for card in self.card_list:
+267             if card.checkMouseClick(mouse_pos):
+268                 if card.canSelect():
+269                     self.addCard(card)
+270                 break
+271 ​
+272     def addCard(self, card):
+273         card.setSelect(False)
+274         y = 8
+275         x = 78 + self.selected_num * 55
+276         self.selected_cards.append(Card(x, y, card.name_index))
+277         self.selected_num += 1
+278 ​
+279     def deleteCard(self, index):
+280         self.card_list[index].setSelect(True)
+281 ​
+282     def checkStartButtonClick(self, mouse_pos):
+283         if self.selected_num < CARD_LIST_NUM:
+284             return False
+285 ​
+286         x, y = mouse_pos
+287         if (x >= self.button_rect.x and x <= self.button_rect.right and
+288             y >= self.button_rect.y and y <= self.button_rect.bottom):
+289            return True
+290         return False
+291 ​
+292     def getSelectedCards(self):
+293         card_index_list = []
+294         for card in self.selected_cards:
+295             card_index_list.append(card.name_index)
+296         return card_index_list
+297 ​
+298     def draw(self, surface):
+299         self.menu_image.blit(self.value_image, self.value_rect)
+300         surface.blit(self.menu_image, self.menu_rect)
+301         surface.blit(self.panel_image, self.panel_rect)
+302         for card in self.card_list:
+303             card.draw(surface)
+304         for card in self.selected_cards:
+305             card.draw(surface)
+306 ​
+307         if self.selected_num == CARD_LIST_NUM:
+308             surface.blit(self.button_image, self.button_rect)
+
+ 
+
+鼠标图片切换
+
+setupMouseImage 函数实现鼠标图片切换为选中的植物：
+
+** self.mouse_image ：根据 plant_name 获取选中的植物图片；
+
+** self.mouse_rect：选中植物图片的位置，在drawMouseShow函数中，需要将植物图片的位置设置成当前鼠标的位置；
+
+** pg.mouse.set_visible(False)：隐藏默认的鼠标显示，这样效果就是鼠标图片切换为选中的植物了。
+
+ 1    def setupMouseImage(self, plant_name, plant_cost):
+ 2         frame_list = tool.GFX[plant_name]
+ 3         if plant_name in tool.PLANT_RECT:
+ 4             data = tool.PLANT_RECT[plant_name]
+ 5             x, y, width, height = data['x'], data['y'], data['width'], data['height']
+ 6         else:
+ 7             x, y = 0, 0
+ 8             rect = frame_list[0].get_rect()
+ 9             width, height = rect.w, rect.h
+10 ​
+11 ​
+12         if plant_name == c.POTATOMINE or plant_name == c.SQUASH:
+13             color = c.WHITE
+14         else:
+15             color = c.BLACK
+16         self.mouse_image = tool.get_image(frame_list[0], x, y, width, height, color, 1)
+17         self.mouse_rect = self.mouse_image.get_rect()
+18         pg.mouse.set_visible(False)
+19         self.drag_plant = True
+20         self.plant_name = plant_name
+21         self.plant_cost = plant_cost
+22 ​
+23 ​
+24     def drawMouseShow(self, surface):
+25         if self.hint_plant:
+26             surface.blit(self.hint_image, self.hint_rect)
+27         x, y = pg.mouse.get_pos()
+28         self.mouse_rect.centerx = x
+29         self.mouse_rect.centery = y
+30         surface.blit(self.mouse_image, self.mouse_rect)
+
+ 
+
+提示种在哪个方格中
+
+先看下map类，代码在source\component\map.py 中：
+
+** self.map：二维list，用来保存每个方格的状态。每个entry初始化为 0, 表示可以种植物，值为1时表示这个方格已经种了
+ 植物。
+
+** getMapIndex 函数：传入参数是游戏中的坐标位置（比如当前鼠标的位置），返回该位置在地图的哪个方格中。
+
+** getMapGridPos 函数：传入一个方格的index，返回在该方格中种植物的坐标位置。
+
+** showPlant 函数：根据传入的坐标位置，判断该位置所在的方格是否能种植物，如果能种，就返回返回在该方格中种植物
+ 的坐标位置。
+
+ 1 MAP_EMPTY = 0
+ 2 MAP_EXIST = 1
+ 3 ​
+ 4 ​
+ 5 class Map():
+ 6     def __init__(self, width, height):
+ 7         self.width = width
+ 8         self.height = height
+ 9         self.map = [[0 for x in range(self.width)] for y in range(self.height)]
+10 ​
+11 ​
+12     def isValid(self, map_x, map_y):
+13         if (map_x < 0 or map_x >= self.width or
+14             map_y < 0 or map_y >= self.height):
+15             return False
+16         return True
+17 ​
+18     def isMovable(self, map_x, map_y):
+19         return (self.map[map_y][map_x] == c.MAP_EMPTY)
+20 ​
+21     def getMapIndex(self, x, y):
+22         x -= c.MAP_OFFSET_X
+23         y -= c.MAP_OFFSET_Y
+24         return (x // c.GRID_X_SIZE, y // c.GRID_Y_SIZE)
+25 ​
+26     def getMapGridPos(self, map_x, map_y):
+27         return (map_x * c.GRID_X_SIZE + c.GRID_X_SIZE//2 + c.MAP_OFFSET_X,
+28                 map_y * c.GRID_Y_SIZE + c.GRID_Y_SIZE//5 * 3 + c.MAP_OFFSET_Y)
+29 ​
+30     def setMapGridType(self, map_x, map_y, type):
+31         self.map[map_y][map_x] = type
+32 ​
+33 ​
+34     def getRandomMapIndex(self):
+35         map_x = random.randint(0, self.width-1)
+36         map_y = random.randint(0, self.height-1)
+37         return (map_x, map_y)
+38 ​
+39 ​
+40     def showPlant(self, x, y):
+41         pos = None
+42         map_x, map_y = self.getMapIndex(x, y)
+43         if self.isValid(map_x, map_y) and self.isMovable(map_x, map_y):
+44             pos = self.getMapGridPos(map_x, map_y)
+45         return pos
+
+ 
+
+代码在source\state\level.py中：
+
+** canSeedPlant 函数：判断当前鼠标位置能否种植物；
+
+** setupHintImage 函数：如果当前鼠标位置能种植物，且有选择了一个植物卡片，则设置self.hint_image 显示当前会在哪
+ 一个方格中种植物，self.hint_rect 是植物种的坐标位置。
+
+ #+begin_src python :results output
+     def canSeedPlant(self):
+         x, y = pg.mouse.get_pos()
+         return self.map.showPlant(x, y)
+ ​
+     def setupHintImage(self):
+         pos = self.canSeedPlant()
+         if pos and self.mouse_image:
+             if (self.hint_image and pos[0] == self.hint_rect.x and
+                 pos[1] == self.hint_rect.y):
+                 return
+             width, height = self.mouse_rect.w, self.mouse_rect.h
+             image = pg.Surface([width, height])
+             image.blit(self.mouse_image, (0, 0), (0, 0, width, height))
+             image.set_colorkey(c.BLACK)
+             image.set_alpha(128)
+             self.hint_image = image
+             self.hint_rect = image.get_rect()
+             self.hint_rect.centerx = pos[0]
+             self.hint_rect.bottom = pos[1]
+             self.hint_plant = True
+         else:
+             self.hint_plant = False
+
+ #+end_src
+ 
+* new
+https://wszqkzqk.github.io/2022/04/05/pypvz/
+
+
+植物大战僵尸游戏的Python实现，基于marblexu的项目进行创作，部分代码也整合自callmebg的项目
+
+本项目为个人python语言学习的练习项目，仅供个人学习和研究使用，不得用于其他用途。如果这个游戏侵犯了版权，请联
+系我删除
+
+** 已有的植物：向日葵，豌豆射手，坚果墙，寒冰射手，樱桃炸弹，双发射手，三线射手，大嘴花，小喷菇，土豆雷，地刺，
+ 胆小菇，倭瓜，火爆辣椒，阳光菇，寒冰菇，魅惑菇，火炬树桩，睡莲，杨桃，咖啡豆，海蘑菇，高坚果，缠绕水草，毁
+ 灭菇，墓碑吞噬者，大喷菇，大蒜，南瓜头
+** 已有的僵尸：普通僵尸，旗帜僵尸，路障僵尸，铁桶僵尸，读报僵尸，橄榄球僵尸，鸭子救生圈僵尸，铁门僵尸，撑杆跳
+ 僵尸，冰车僵尸，潜水僵尸
+** 使用 JSON 文件记录关卡信息数据 
+
+ * 在0.8.18.0及以后直接用python记录关卡的不可变数据，JSON目前仅用于用户存档
+
+** 支持选择植物卡片
+** 支持白昼模式，夜晚模式，泳池模式，传送带模式和坚果保龄球模式
+** 支持背景音乐播放 
+
+ * 支持调节音量
+
+** 支持音效 
+
+ * 支持与背景音乐一起调节音量
+
+** 支持全屏模式 
+
+ * 按F键进入全屏模式，按U键恢复至窗口模式
+
+** 支持用小铲子移除植物
+** 支持分波生成僵尸
+** 支持“关卡进程”进度条显示
+** 夜晚模式支持墓碑以及从墓碑生成僵尸
+** 含有泳池的模式支持在最后一波时从泳池中自动冒出僵尸
+** 支持保存进度 
+
+ * Windows下默认进度文件的保存路径为~\AppData\Roaming\wszqkzqk.dev\pypvz\userdata.json
+ * 其他操作系统为~/.config/wszqkzqk.dev/pypvz/userdata.json
+ * 存档为JSON文件，如果出现因存档损坏而造成程序无法启动，可以手动编辑修复或者删除该文件重试 
+
+ * 0.8.12.0版本后理论上不可能因为存档损坏而无法启动，如果有，请在issues中报告bug 
+
+ * 仍然有可能因为升级后变量名不同而丢失存档的进度信息，这种情况手动编辑恢复即可
+
+** 支持错误日志记录 
+
+ * Windows下默认日志文件的保存路径为~\AppData\Roaming\wszqkzqk.dev\pypvz\run.log
+ * 其他操作系统为~/.config/wszqkzqk.dev/pypvz/run.log
+
+** 支持自定义游戏速度倍率 
+
+ * 保存在游戏存档文件中，可以通过修改game rate值更改速度倍率
+
+** 游戏完成成就显示 
+
+ * 任意一游戏模式全部完成显示银向日葵奖杯
+ * 所有模式全部完成显示金向日葵奖杯
+ * 光标移动到向日葵奖杯上是显示当前各个模式通关次数
+
+** 含有游戏帮助界面 QwQ
+
+开始游戏
+
+使用仓库源代码
+
+环境要求
+
+** Python3 （建议 >= 3.10，最好使用最新版）
+** Python-Pygame （建议 >= 2.0，最好使用最新版）
+
+使用
+
+先克隆仓库内容，再运行main.py：
+
+git clone https://github.com/wszqkzqk/pypvz.git
+cd pypvz
+python main.py
+
+使用Windows可执行文件
+
+下载pypvz.exe文件，双击运行即可
+
+** 可以在仓库的Releases页面中下载最新版（点击跳转）（推荐）： 
+
+ * 使用GCC编译
+ * 程序包含名称、版本等信息
+ * 得到的验证最多
+ * 并非每次提交都会更新，更新可能不及时
+
+** 也可以直接下载GitHub Workflow自动利用Nuitka构建的版本（点击跳转）（推荐）： 
+
+ * 使用MSVC编译
+ * 每次合并提交到主分支时更新
+ * 得到的验证较多
+ * 服务器构建，编译环境更纯粹，冗余更少，体积更小
+
+** 还可以下载GitHub Workflow自动利用Pyinstaller构建的版本（点击跳转）： 
+
+ * 在程序闪退时有报错窗口弹出
+ * 程序性能较差，不推荐
+
+** 均仅支持64位操作系统
+** 不依赖python、pygame等外部环境，开箱即用
+
+方法
+
+** 使用鼠标收集阳光,种植植物
+** 对于已经存在存档的用户，可以在~\AppData\Roaming\wszqkzqk.dev\pypvz\userdata.json（Windows）或~
+ /.config/wszqkzqk.dev/pypvz/userdata.json（其他操作系统）中修改当前关卡： 
+
+ * 冒险模式： 
+
+ * 白昼模式——单行草皮：1
+ * 白昼模式——三行草皮：2
+ * 白昼模式：3~5
+ * 夜晚模式：6~8
+ * 泳池模式：9~11
+ * 浓雾模式（暂时没有雾）：12
+
+ * 小游戏模式： 
+
+ * 坚果保龄球模式：1
+ * 传送带模式（白天）：2
+ * 传送带模式（黑夜）：3
+ * 传送带模式（泳池）：4
+ * 坚果保龄球(II)：5
+
+ * 目前暂时按照以上设定，未与原版相符
+
+** 对于已经存在存档的用户，可以在~\AppData\Roaming\wszqkzqk.dev\pypvz\userdata.json（Windows）或~
+ /.config/wszqkzqk.dev/pypvz/userdata.json（其他操作系统）中修改当前关卡
+** 可以通过修改存档JSON文件中的game rate值来调节游戏速度倍率
+
+Windows单文件封装
+
+编译依赖：
+
+** Python3 （建议 >= 3.10，最好使用最新版）
+** Python-Pygame （建议 >= 2.0，最好使用最新版）
+** Nuitka
+** MinGW-w64（或其他C编译器）
+** ccache
+** depends
+** python-zstandard（可选）
+
+在编译环境安装不全时，Nuitka可以自动安装MinGW-w64、ccache和depends
+
+** 由于目前Nuitka打包尚存bug，无法自动封装pygame中用来解码音频的相关.dll文件，因此需要手动在编译命令中添加 
+
+ * 对于mp3编码，需要添加libmpg123-0.dll
+ * 对于vorbis编码，需要添加libogg-0.dll，libvorbis-0.dll和libvorbisfile-3.dll
+ * 对于opus编码，需要添加libogg-0.dll，libopus-0.dll和libopusfile-0.dll
+
+** 以添加opus和vorbis编码的背景音乐支持为例，编译需执行以下命令：
+
+git clone https://github.com/wszqkzqk/pypvz.git
+cd pypvz
+nuitka --mingw64 --standalone `
+        --onefile `
+        --show-progress `
+        --show-memory `
+        --output-dir=release `
+        --windows-icon-from-ico=pypvz.ico `
+        --include-data-dir=resources=resources `
+        --include-data-file=C:\Users\17265\AppData\Local\Programs\Python\Python310\Lib\site-packages\pygame\libogg-0.dll=libogg-0.dll `
+        --include-data-file=C:\Users\17265\AppData\Local\Programs\Python\Python310\Lib\site-packages\pygame\libopus-0.dll=libopus-0.dll `
+        --include-data-file=C:\Users\17265\AppData\Local\Programs\Python\Python310\Lib\site-packages\pygame\libopusfile-0.dll=libopusfile-0.dll `
+        --include-data-file=C:\Users\17265\AppData\Local\Programs\Python\Python310\Lib\site-packages\pygame\libvorbisfile-3.dll=libvorbisfile-3.dll `
+        --include-data-file=C:\Users\17265\AppData\Local\Programs\Python\Python310\Lib\site-packages\pygame\libvorbis-0.dll=libvorbis-0.dll `
+        --lto=yes `
+        --windows-disable-console `
+        --windows-product-name=pypvz `
+        --windows-company-name=wszqkzqk.dev `
+        --windows-file-description="pypvz" `
+        --windows-product-version=0.8.2.0 `
+        main.py
+
+** 其中C:\Users\17265\AppData\Local\Programs\Python\Python310\Lib\site-packages\pygame\xxx.dll应当替换为
+ xxx.dll实际所在路径，--output-dir=后应当跟实际需要输出的路径，绝对路径或者相对路径均可
+** 由于仅复制了opus与vorbis的解码器，故要求所有背景音乐都要以opus或vorbis编码
+** --windows-product-version=表示版本号信息，所跟内容格式必须为x.x.x.x
+** 建议开启--lto=yes选项优化链接，如果编译失败可以关闭此选项
+
+可执行文件生成路径为./release/main.exe
+
+如果只需要在本地生成编译文件测试，则只需要执行：
+
+nuitka --mingw64 `
+    --follow-imports `
+    --show-progress `
+    --output-dir=test-build `
+    --windows-icon-from-ico=pypvz.ico `
+    --windows-product-name=pypvz `
+    --windows-company-name=wszqkzqk.dev `
+    --windows-file-description=pypvz `
+    --windows-disable-console `
+    --windows-product-version=0.8.2.0 `
+    main.py
+
+这样生成的程序只能在有python环境的机器上运行
+
+使用pyinstaller进行构建
+
+** 由于pyinstaller构建的程序运行效率显著较nuitka构建的程序低下，并且程序体积也往往比nuitka构建的程序大，因此本项
+ 目并不推荐使用pyinstaller构建
+** 但是因为pyinstaller直接封装了所导入的库中的全部内容，使用pyinstaller构建时不需要手动添加媒体解码库
+** pyinstaller并没有涉及python源代码优化、C源代码生成以及C源代码编译链接过程，因此编译速度显著快于nuitka
+
+编译依赖：
+
+** Python3 （建议 >= 3.10，最好使用最新版）
+** Python-Pygame （建议 >= 2.0，最好使用最新版）
+** Pyinstaller
+
+编译参考命令：
+
+pyinstaller -F main.py `
+                  --distpath ./release `
+                  --noconsole `
+                  --add-data="resources;./resources" `
+                  --add-data="pypvz-exec-logo.png;./pypvz-exec-logo.png" `
+                  -i ./pypvz.ico
+
+可执行文件生成路径为./release/main.exe
+
+使用Github Workflow进行自动构建
+
+直接复制本项目下的.github/workflows下的文件，进行少许改动即可满足大多数需求
+
+已知bug
+
+以下问题囿于个人目前的能力与精力，没有修复：
+
+** 冷冻的僵尸未用蓝色滤镜标识
+** 魅惑的僵尸未用红色滤镜标识
+** 南瓜头显示不正常
+** 墓碑吞噬者吞噬墓碑过程中被吞噬的墓碑顶端不会消失
+
+欢迎提供Pull requests或修复方法建议，也欢迎在这里反馈新的bug()
+
+画大饼计划（不保证实施）
+
+** 增加关卡进程进度条 
+
+ * 该功能自0.5.4已实现
+
+** 增加保存数据文件以存储用户进度的功能 
+
+ * 该功能自0.8.0.0已实现
+
+** 增加调整音量的功能 
+
+ * pg.mixer.music.set_volume()
+ * 可以用音量+、音量-按钮实现
+ * 注意字体颜色渲染
+ * 该功能自0.8.14.0已实现
+
+** 关卡开始前增加预览界面
+** 增加解锁与选关功能 
+
+ * 目前的设想与原版不同，在完成两轮冒险模式（初始冒险模式 + 戴夫选关的冒险模式）后可以自主选关（当然现在只是
+ 画饼）
+
+** 更改僵尸生成方式 
+
+ * 使僵尸生成更随机化，由JSON记录改为随机数生成 
+
+ * 该功能自0.5.0已经基本实现
+ * 使用原版设定，每面旗帜出10波僵尸，9个小波，1个大波
+ * 采用手机版设定，无尽模式没有红眼计数和变速设定，每波红眼权重为1000，平均分布
+
+ * 增加僵尸死亡后有概率掉落奖励的机制
+
+** 增加更多植物、僵尸类型与游戏功能、模式，尽量符合原版基本设计
+** 细分伤害种类 
+
+ * 实体 
+
+ * 一般子弹实体——普通伤害且无特殊效果 
+
+ * 豌豆 
+
+ * 已实现
+
+ * 孢子 
+
+ * 已实现
+
+ * 星星 
+
+ * 已实现
+
+ * 尖刺
+
+ * 特殊子弹实体——非普通伤害或有特殊效果 
+
+ * 冰豌豆（减速） 
+
+ * 已实现
+
+ * 火豌豆（2倍伤害、带有1x1溅射、解冻） 
+
+ * 已实现
+
+ * 投掷 
+
+ * 西瓜（4倍伤害，带有3x3溅射）
+ * 冰瓜（4倍伤害，带有3x3溅射伤害与减速）
+ * 玉米粒
+ * 黄油（2倍伤害，定格）
+ * 卷心菜（2倍伤害）
+
+ * 烟雾 
+
+ * 线形范围烟雾 
+
+ * 自0.7.10.0起已实现
+
+ * 圆形范围烟雾
+
+ * 碾压 
+
+ * 倭瓜 
+
+ * 已实现
+
+ * 爆炸 
+
+ * 一般爆炸 
+
+ * 樱桃炸弹、爆炸坚果与玉米加农炮炮弹 
+
+ * 已实现
+
+ * 毁灭菇 
+
+ * 自0.7.6.0已实现
+
+ * 火焰爆炸 
+
+ * 火爆辣椒（同时解冻） 
+
+ * 已实现
+
+ * 非灰烬类爆炸 
+
+ * 土豆雷 
+
+ * 已实现
+
+ * 从地面刺伤 
+
+ * 已实现
+
+ * 缠绕与拖拽 
+
+ * 自0.7.5.0已实现
+ * 与原版有所区别，设定上秒杀任意僵尸
+
+ * 吞噬 
+
+ * 已实现
+ * 与原版有所区别，设定上秒杀任意僵尸
+
+ * 特殊 
+
+ * 魅惑 
+
+ * 已实现
+
+ * 移除铁制防具
+ * 全场伤害与冰冻 
+
+ * 已实现
+
+ * 撞击 
+
+ * 坚果保龄球撞击 
+
+ * 已实现
+
+ * 巨型坚果保龄球撞击
+
+ * 吹走
+
+** 增加部分音效 
+
+ * 如爆炸、打击等
+ * 自0.6.9已部分实现
+
+截屏
+
+** 截屏保存在raw.githubusercontent.com上，在部分网络环境中可能加载较慢
+
+
+
+
+
